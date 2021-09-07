@@ -1,0 +1,13 @@
+name: 'Cache node_modules'
+description: 'Caches node_modules'
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/cache@v2
+      env:
+        cache-name: node_modules_cache
+      with:
+        path: ./node_modules
+        key: ${{ env.cache-name }}-${{ hashFiles('./package-lock.json') }}
+        restore-keys: |
+          ${{ env.cache-name }}-

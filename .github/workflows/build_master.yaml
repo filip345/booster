@@ -1,0 +1,127 @@
+name: build_master
+
+concurrency:
+    group: ${{ github.head_ref }}-${{ github.event_name }}
+    cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  npm-dependencies:
+    name: install npm dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: ./.github/actions/cache-node-modules
+      
+      - name: Install npm dependencies
+        if: steps.node_modules_cache.outputs.cache-hit != 'true'
+        run: npm install
+  
+  affected-apps:
+    needs: npm-dependencies
+    name: calculate affected apps
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.backend.outputs.affected }}
+      frontend: ${{ steps.frontend.outputs.affected }}
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Derive appropriate SHAs for base and head for `nx affected` commands
+        uses: nrwl/nx-set-shas@v1
+        with:
+          main-branch-name: master
+          error-on-no-matching-tags: false
+
+      - uses: ./.github/actions/cache-node-modules
+      
+      - name: backend
+        id: backend
+        run: npx nx print-affected --base="${{env.NX_BASE}}" --head="${{env.NX_HEAD}}" --select=projects | grep -q backend && echo "::set-output name=affected::true" || echo "backend not affected"
+
+      - name: frontend
+        id: frontend
+        run: npx nx print-affected --base="${{env.NX_BASE}}" --head="${{env.NX_HEAD}}" --select=projects | grep -q frontend && echo "::set-output name=affected::true" || echo "frontend not affected"
+
+  backend:
+    needs: [npm-dependencies, affected-apps]
+    name: backend
+    if: ${{ needs.affected-apps.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: ./.github/actions/cache-node-modules
+
+      - name: lint
+        run: npx nx run backend:lint
+
+      - name: build
+        run: npx nx run backend:build --prod
+
+      - name: build image
+        run: npx nx run backend:build-image
+
+      - name: login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: push image
+        run: docker push --all-tags fkontic/booster-backend
+    
+  frontend:
+    needs: [npm-dependencies, affected-apps]
+    name: frontend
+    if: ${{ needs.affected-apps.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          lfs: true
+
+      - uses: ./.github/actions/cache-node-modules
+
+      - name: lint
+        run: npx nx run frontend:lint
+
+      - name: build
+        run: npx nx run frontend:build --prod
+
+      - name: build image
+        run: npx nx run frontend:build-image
+      
+      - name: login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: push image
+        run: docker push --all-tags fkontic/booster-frontend
+
+  tag-successful-build:
+    needs: [backend, frontend]
+    if: ${{ !failure() && !cancelled() }}
+    name: tag successful build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Tag main branch if all jobs succeed
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        uses: nrwl/nx-tag-successful-ci-run@v1
+
