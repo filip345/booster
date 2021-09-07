@@ -1,98 +1,55 @@
 # Booster
 
-This project was generated using [Nx](https://nx.dev).
+## Run without installing
+prerequisites: docker, no processes listening on ports 4200, 3333 or 5432
 
-<p style="text-align: center;"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="450"></p>
+To run production images, from the __DockerHub__ repository, locally you need to have docker installed. Run the following command and wait for database to initialize. It takes some time the first time to run it because it needs to load all the vehicle types.
+```
+docker-compose up
+```
 
-🔎 **Smart, Extensible Build Framework**
+## Dev environment
+prerequisites: docker, node, no processes listening on ports 4200, 3333 or 5432
 
-## Quick Start & Documentation
+- ```npm install``` - installs dependencies
+- ```npm run local-dev``` - starts local database with docker-compose
+- in one terminal run ```npm run backend:servve```
+- in another terminal run ```npm run frontend:serve```
 
-[Nx Documentation](https://nx.dev/angular)
+# Project structure
+This project was generated using [Nx](https://nx.dev). The reason for this is that it makes it easy to bootstrap multiple applications as well as sharing code between backend and frontend. The project consists of two apps: __backend__ and __frontend__ as well as a shared library __models__ which is used for sharing interfaces between __backend__ and __frontend__.
 
-[10-minute video showing all Nx features](https://nx.dev/getting-started/intro)
+## frontend
+A basic Angular application with one route for ___vehicle-type-list___. VehicleTypeModule is lazy loaded - it is the only route so it makes no difference, but if we wanted to add more routes, this is the structure we would use.
 
-[Interactive Tutorial](https://nx.dev/tutorial/01-create-application)
+Every componenet has its own SCAM module because it makes component dependencies more explicit and down the road, when Angular removes the need for modules, we can easily transition.
 
-## Adding capabilities to your workspace
+No store (NgRx, Akita) was used because we wouldn't gain anything in such a small app.
 
-Nx supports many plugins which add capabilities for developing different types of applications and different tools.
+Angular Material is used for form controls, dialog, table and snackbar because it's widely used, is easy to use and looks decent without the need for custom styles. __MatSnackbar__ was wrapped into __NotificationService__ to unify the styling of notifications and to make it easier to replace __MatSnackbar__ in the future if needed.
 
-These capabilities include generating applications, libraries, etc as well as the devtools to test, and build projects as well.
+Reactive forms are used for both search and create dialog because they easier to use, especially for reactive code (search).
 
-Below are our core plugins:
+## backend
+A basic NestJS application with only one controller (vehicle-type).
 
-- [Angular](https://angular.io)
-  - `ng add @nrwl/angular`
-- [React](https://reactjs.org)
-  - `ng add @nrwl/react`
-- Web (no framework frontends)
-  - `ng add @nrwl/web`
-- [Nest](https://nestjs.com)
-  - `ng add @nrwl/nest`
-- [Express](https://expressjs.com)
-  - `ng add @nrwl/express`
-- [Node](https://nodejs.org)
-  - `ng add @nrwl/node`
+__PostgreSQL__ is used for data persistence which is generally great for CRUD style applications, but it lacks in search capabilities. __Lucene__ / __Elasticsearch__ would be more appropriate for implementing fuzzy search, but it wouldn't make sense for such a small project.
 
-There are also many [community plugins](https://nx.dev/community) you could add.
+__VehicleTypeEntity__ represents __vehicle_type__ table in the database. __id__ column is used as a primary key because it makes it easier to define relationships between other tables, but since we needed to ensure that the combination __make__, __model__ and __year__ is unique, we use create a composite __UNIQUE__ constraint.
 
-## Generate an application
+__TypeORM__ is used for accessing the database with a nice repository interface as well as for handling migrations.
 
-Run `ng g @nrwl/angular:app my-app` to generate an application.
+__dotenv__ is used for passing in environment variables from __.env__ file so that there is no need to set them up in our local machine during development. In conjunction with that, we use __Zod__ for parsing / validating environment variables so that we get a crash (if needed) as soon as the application starts and not later during runtime.
 
-> You can use any of the plugins above to generate applications as well.
+__InitialDataService__ is used for loading initial vehicle types in development environment. This might not be the best solution because it is only ever used in development and only called once, but it eliminates the need for running additional scripts when cloning the repository for the first time.
 
-When using Nx, you can create multiple applications and libraries in the same workspace.
+__VehicleTypeController__ is a REST controller, but it lacks the update method as per specification. The controller uses __VehicleTypeService__ which encapsulates business logic (mainly the search functionality, because other methods are basically mapped to repository layer 1 to 1). It also serves the purpose of separating the __VehicleTypeEntity__ from DTOs __VehicleType__ and __VehicleTypeCreate__ which are used in the rest of the project.
 
-## Generate a library
+Fuzzy search is implemented using __similarity__ function provided by __PostgreSQL__. Three separate conditions are used, each one of which checks similarity of __make__, __model__ and __year__ to the search term. As stated above, this is not ideal, but is faster than loading all the data and doing fuzzy search in the application layer, even though that approach could provide more relevant search results. The best solution would be to use specialized tools such as __Elasticsearch__.
 
-Run `ng g @nrwl/angular:lib my-lib` to generate a library.
+## CI
+A single workflow is implemented with __GitHub Actions__. This workflow only runs on master and is used to build and push docker images to the __DockerHub__ repository.
 
-> You can also use any of the plugins above to generate libraries as well.
+It looks complicated because the repository is monorepo and we have to ensure that only the applications that were changed since the previous run get built. This is accomplished with the use of __affected__ functionality provided by __nx__. __nx__ builds a dependency graph out of the source code so that it knows which applications and libraries depend on each other. Based on this dependency graph and git history, __nx__ can deduce which applications have been changed since the last run. In this way we avoid unnecessarily building applications and libraries, which saves us a lot of resources for larger projects.
 
-Libraries are shareable across libraries and applications. They can be imported from `@booster/mylib`.
-
-## Development server
-
-Run `ng serve my-app` for a dev server. Navigate to http://localhost:4200/. The app will automatically reload if you change any of the source files.
-
-## Code scaffolding
-
-Run `ng g component my-component --project=my-app` to generate a new component.
-
-## Build
-
-Run `ng build my-app` to build the project. The build artifacts will be stored in the `dist/` directory. Use the `--prod` flag for a production build.
-
-## Running unit tests
-
-Run `ng test my-app` to execute the unit tests via [Jest](https://jestjs.io).
-
-Run `nx affected:test` to execute the unit tests affected by a change.
-
-## Running end-to-end tests
-
-Run `ng e2e my-app` to execute the end-to-end tests via [Cypress](https://www.cypress.io).
-
-Run `nx affected:e2e` to execute the end-to-end tests affected by a change.
-
-## Understand your workspace
-
-Run `nx dep-graph` to see a diagram of the dependencies of your projects.
-
-## Further help
-
-Visit the [Nx Documentation](https://nx.dev/angular) to learn more.
-
-## ☁ Nx Cloud
-
-### Distributed Computation Caching & Distributed Task Execution
-
-<p style="text-align: center;"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-cloud-card.png"></p>
-
-Nx Cloud pairs with Nx in order to enable you to build and test code more rapidly, by up to 10 times. Even teams that are new to Nx can connect to Nx Cloud and start saving time instantly.
-
-Teams using Nx gain the advantage of building full-stack applications with their preferred framework alongside Nx’s advanced code generation and project dependency graph, plus a unified experience for both frontend and backend developers.
-
-Visit [Nx Cloud](https://nx.app/) to learn more.
+For each application, the workflow run __lint__, __build__ and __build-image__, which are defined in project.jsons, but also push images to the __Dockerhub__. Credentials for the repository are saved as secrets in __GitHub__ repository.
