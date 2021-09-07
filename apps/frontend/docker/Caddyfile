@@ -1,0 +1,10 @@
+:80
+
+encode gzip
+root * /srv
+file_server
+
+route {
+	reverse_proxy /api/* {$BACKEND_URL}
+	try_files {path} /index.html
+}

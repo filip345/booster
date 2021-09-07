@@ -1,0 +1,23 @@
+:host {
+  display: block;
+  padding: 40px;
+}
+
+.vehicle-type-list {
+  &__container {
+
+  }
+
+  &__add-button, &__spinner {
+    margin: 0 0 16px 10px;
+  }
+  
+  &__search-container {
+    display: flex;
+    align-items: center;
+  }
+
+  &__table {
+    width: 100%;
+  }
+}

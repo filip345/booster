@@ -1,0 +1,47 @@
+<h2 mat-dialog-title>New vehicle type</h2>
+
+<mat-dialog-content>
+  <ng-container [formGroup]="formGroup">
+    <mat-form-field appearance="fill">
+      <mat-label>Make*</mat-label>
+      <input matInput
+        formControlName="make">
+      <mat-error *ngIf="formGroup.get('make')?.invalid">
+        Required
+      </mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Model*</mat-label>
+      <input matInput
+        formControlName="model">
+      <mat-error *ngIf="formGroup.get('model')?.invalid">
+        Required
+      </mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Year*</mat-label>
+      <input matInput
+        type="number"
+        formControlName="year">
+      <mat-error *ngIf="formGroup.get('year')?.invalid">
+        {{getYearError(formGroup.get('year')!.errors)}}
+      </mat-error>
+    </mat-form-field>
+  </ng-container>
+</mat-dialog-content>
+
+<mat-dialog-actions>
+  <button [disabled]="saving$$ | async"
+    mat-flat-button
+    color="primary"
+    (click)="onSaveClick()">
+    Save
+  </button>
+  <button [disabled]="saving$$ | async"
+    mat-button
+    (click)="onCancelClick()">
+    Cancel
+  </button>
+</mat-dialog-actions>
