@@ -1,0 +1,35 @@
+version: "3"
+services:
+  db:
+    image: "postgres:13.3-alpine"
+    ports:
+      - 5432:5432
+    volumes:
+      - ./local-dev/db/init.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./local-dev/mounts/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - DATABASE_USERNAME=booster_user
+      - DATABASE_PASSWORD=booster_pass
+      - DATABASE_NAME=booster
+  backend:
+    image: "fkontic/booster-backend:latest"
+    ports:
+      - 3333:3333
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=booster_user
+      - DATABASE_PASSWORD=booster_pass
+      - DATABASE_NAME=booster
+    depends_on:
+      - db
+  frontend:
+    image: "fkontic/booster-frontend:latest"
+    ports:
+      - 4200:80
+    environment:
+      - BACKEND_URL=backend:3333
+    depends_on:
+      - backend

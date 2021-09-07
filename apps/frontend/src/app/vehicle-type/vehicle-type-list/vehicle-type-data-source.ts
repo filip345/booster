@@ -31,8 +31,6 @@ export class VehicleTypeDataSource implements DataSource<VehicleType> {
     pageIndex: number = 0,
     pageSize: number = 20
   ) {
-    console.log('load', searchTerm, filter, sortDirection, pageIndex, pageSize);
-
     this.loading$$.next(true);
     this.vehicleTypeService
       .getPage(searchTerm, pageIndex, pageSize)
